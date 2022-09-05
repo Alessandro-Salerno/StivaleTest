@@ -1,0 +1,1 @@
+docker build ./Docker -t stivale2-buildenv

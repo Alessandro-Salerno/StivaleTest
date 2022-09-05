@@ -98,11 +98,22 @@ void *stivale2_get_tag(struct stivale2_struct *stivale2_struct, uint64_t id) {
     }
 }
 
+int stringlen(const char *string ) {
+    int len;
+    for (len = 0; string[len] != 0; len++);
+    return len;
+}
+
+#define STRING(str) str, stringlen(str)
+
 // The following will be our kernel's entry point.
 void _start(struct stivale2_struct *stivale2_struct) {
     // Let's get the terminal structure tag from the bootloader.
     struct stivale2_struct_tag_terminal *term_str_tag;
     term_str_tag = stivale2_get_tag(stivale2_struct, STIVALE2_STRUCT_TAG_TERMINAL_ID);
+
+    struct stivale2_struct_tag_modules *modules_tag;
+    modules_tag = stivale2_get_tag(stivale2_struct, STIVALE2_STRUCT_TAG_MODULES_ID);
 
     // Check if the tag was actually found.
     if (term_str_tag == NULL) {
@@ -120,9 +131,28 @@ void _start(struct stivale2_struct *stivale2_struct) {
     // the stivale2_term_write function.
     void (*term_write)(const char *string, size_t length) = term_write_ptr;
 
-    // We should now be able to call the above function pointer to print out
-    // a simple "Hello World" to screen.
-    term_write("Hello World", 11);
+    if (modules_tag == NULL) {
+        term_write(STRING("Modules not found!\n"));
+    } else {
+        if (modules_tag->module_count > 0) {
+            struct stivale2_module module = modules_tag->modules[0];
+            void *module_entry = (void*)module.begin;
+            int (*module_main)(int) = ((__attribute__((sysv_abi)) int (*)(int))(module_entry));
+            int retval;
+            if ((retval = module_main(5)) == 5) {
+                term_write(STRING("Module success!"));
+            } else {
+                term_write(STRING("Module failure: "));
+                char buff[10];
+                buff[0] = '0' + retval;
+                buff[1] = '\n';
+                buff[2] = 0;
+                term_write(STRING(buff));
+            }
+        } else {
+            term_write(STRING("No modules loaded!\n"));
+        }
+    }
 
     // We're done, just hang...
     for (;;) {

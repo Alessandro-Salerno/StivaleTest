@@ -1,0 +1,1 @@
+docker run --rm -it -v $(pwd):/root/env stivale2-buildenv
